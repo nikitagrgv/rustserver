@@ -1,4 +1,5 @@
-use std::sync::{mpsc, Arc, LockResult, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -18,39 +19,32 @@ impl Job {
 struct Worker {
     id: usize,
     handle: JoinHandle<()>,
-    is_busy: Arc<Mutex<bool>>,
+    busy: Arc<AtomicBool>,
 }
 
 impl Worker {
     fn new(id: usize, rx: mpsc::Receiver<Job>) -> Self {
-        let is_busy = Arc::new(Mutex::new(false));
+        let busy = Arc::new(AtomicBool::new(false));
 
-        let is_busy_for_thread = is_busy.clone();
+        let busy_th = busy.clone();
         let handle = thread::spawn(move || {
             for j in rx {
-                {
-                    *is_busy_for_thread.lock().unwrap() = true;
-                }
+                busy_th.store(true, Ordering::Relaxed);
                 (j.func)();
-                {
-                    *is_busy_for_thread.lock().unwrap() = false;
-                }
+                busy_th.store(false, Ordering::Relaxed);
             }
         });
-        Self {
-            id,
-            handle,
-            is_busy,
-        }
-    }
-
-    fn is_busy(&self) -> bool {
-        *self.is_busy.lock().unwrap()
+        Self { id, handle, busy }
     }
 }
 
+struct WorkerInfo {
+    worker: Worker,
+    sender: mpsc::Sender<Job>,
+}
+
 pub struct ThreadPool {
-    workers: Vec<(Worker, mpsc::Sender<Job>)>,
+    workers: Vec<WorkerInfo>,
 }
 
 impl ThreadPool {
@@ -62,7 +56,10 @@ impl ThreadPool {
         for id in 0..max_threads {
             let (tx, rx) = mpsc::channel();
             let worker = Worker::new(id, rx);
-            workers.push((worker, tx));
+
+            let worker_info = WorkerInfo { worker, sender: tx };
+
+            workers.push(worker_info);
         }
 
         return Self { workers };
@@ -73,17 +70,26 @@ impl ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         let job = Job::new(f);
-        let worker = 'l: loop {
-            for w in &self.workers {
-                println!("BUSINESS: id: {}, busy: {}", w.0.id, w.0.is_busy());
 
+        println!("start find");
+        let mut worker = self.find_worker();
+        println!("worker id = {}", worker.worker.id);
 
-                if !w.0.is_busy() {
-                    // println!("NOT BUSY! {}", w.0.id);
-                    break 'l &w.1;
+        worker.sender.send(job).unwrap();
+
+        println!("ended");
+    }
+
+    fn find_worker<'a>(&'a mut self) -> &'a mut WorkerInfo {
+        let idx = 'l: loop {
+            for (i, w) in self.workers.iter().enumerate() {
+                let busy = w.worker.busy.load(Ordering::Relaxed);
+                println!("PREV: {} -  {}", i, busy);
+                if !busy {
+                    break 'l i;
                 }
             }
         };
-        worker.send(job).unwrap();
+        return &mut self.workers[idx];
     }
 }

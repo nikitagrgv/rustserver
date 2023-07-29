@@ -24,8 +24,6 @@ fn handle_connection(mut stream: TcpStream) {
         .take_while(|line| !line.is_empty())
         .collect();
 
-    thread::sleep(Duration::from_secs_f32(4.0));
-
     let uri = {
         let re = Regex::new(r"GET (.+) HTTP/1\.1").unwrap();
 
@@ -37,6 +35,9 @@ fn handle_connection(mut stream: TcpStream) {
 
     let entries: Option<Vec<_>> = {
         if let Ok(dir) = fs::read_dir(uri) {
+
+            thread::sleep(Duration::from_secs_f32(4.0));
+
             let mut vec = Vec::new();
             for d in dir {
                 if let Ok(e) = d {
@@ -94,7 +95,7 @@ fn handle_connection(mut stream: TcpStream) {
 
 fn run_server() -> Option<()> {
     let listener = TcpListener::bind(ADDRESS).unwrap();
-    let mut pool = ThreadPool::new(4);
+    let mut pool = ThreadPool::new(5);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
