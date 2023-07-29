@@ -26,8 +26,6 @@ fn handle_connection(mut stream: TcpStream) {
 
     thread::sleep(Duration::from_secs_f32(4.0));
 
-    println!("REQEST: {:#?}", http_req);
-
     let uri = {
         let re = Regex::new(r"GET (.+) HTTP/1\.1").unwrap();
 
@@ -36,8 +34,6 @@ fn handle_connection(mut stream: TcpStream) {
         let Some(cap) = caps.get(1) else { return; };
         cap.as_str()
     };
-
-    println!("URI = {uri}");
 
     let entries: Option<Vec<_>> = {
         if let Ok(dir) = fs::read_dir(uri) {
