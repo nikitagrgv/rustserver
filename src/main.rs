@@ -2,6 +2,7 @@ use regex::Regex;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
+use std::time::Duration;
 use std::{fs, thread};
 
 const ADDRESS: &str = "127.0.0.1:7878";
@@ -20,6 +21,8 @@ fn handle_connection(mut stream: TcpStream) {
         .map(|result| result.unwrap())
         .take_while(|line| !line.is_empty())
         .collect();
+
+    thread::sleep(Duration::from_secs_f32(2.0));
 
     println!("REQEST: {:#?}", http_req);
 
@@ -95,7 +98,10 @@ fn run_server() -> Option<()> {
     let listener = TcpListener::bind(ADDRESS).unwrap();
 
     for stream in listener.incoming() {
-        thread::spawn(|| handle_connection(stream.unwrap()));
+        let stream = stream.unwrap();
+        thread::spawn(|| {
+            handle_connection(stream);
+        });
     }
 
     Some(())
