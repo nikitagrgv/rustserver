@@ -61,9 +61,11 @@ fn handle_connection(mut stream: TcpStream) {
 
         match entries {
             Some(entries) => {
+                info.push_str("<ul>");
                 for e in entries {
-                    info.push_str(format!("<a href=\"{}\">{}</a>\n", e, e).as_str());
+                    info.push_str(format!("<li><a href=\"{}\">{}</a></li>", e, e).as_str());
                 }
+                info.push_str("</ul>");
             }
             None => {
                 info.push_str("<p>INVALID PATH!</p>");
