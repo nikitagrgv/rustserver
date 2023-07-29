@@ -50,14 +50,24 @@ fn handle_connection(mut stream: TcpStream) {
 
     {
         let mut info = format!("<p>path: {}</p>\n", uri);
-        if let Some(entries) = entries {
-            for e in entries {
-                if let Some(e) = e.to_str() {
-                    info.push_str(format!("<p>{}</p>\n", e).as_str());
+
+        let entries = match &entries {
+            Some(vec) => {
+                let str_vec: Vec<_> = vec.iter().filter_map(|path| path.to_str()).collect();
+                Some(str_vec)
+            }
+            None => None,
+        };
+
+        match entries {
+            Some(entries) => {
+                for e in entries {
+                    info.push_str(format!("<a href=\"{}\">{}</a>\n", e, e).as_str());
                 }
             }
-        } else {
-            info.push_str("<p>INVALID PATH!</p>");
+            None => {
+                info.push_str("<p>INVALID PATH!</p>");
+            }
         }
 
         let content = fs::read_to_string("data/hello.html").unwrap();
