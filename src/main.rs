@@ -1,9 +1,8 @@
 use regex::Regex;
-use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::ops::AddAssign;
 use std::path::Path;
+use std::{fs, thread};
 
 const ADDRESS: &str = "127.0.0.1:7878";
 
@@ -51,6 +50,7 @@ fn handle_connection(mut stream: TcpStream) {
 
     {
         let mut info = format!("<h1>path: {}</h1>\n", uri);
+        info.push_str(format!("<p>thread id = {}</p>\n", unsafe { libc::gettid() }).as_str());
 
         {
             let parent = (|| -> Option<&str> {
@@ -95,7 +95,7 @@ fn run_server() -> Option<()> {
     let listener = TcpListener::bind(ADDRESS).unwrap();
 
     for stream in listener.incoming() {
-        handle_connection(stream.unwrap());
+        thread::spawn(|| handle_connection(stream.unwrap()));
     }
 
     Some(())
