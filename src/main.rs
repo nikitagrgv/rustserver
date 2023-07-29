@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::ops::AddAssign;
+use std::path::Path;
 
 const ADDRESS: &str = "127.0.0.1:7878";
 
@@ -49,7 +50,18 @@ fn handle_connection(mut stream: TcpStream) {
     };
 
     {
-        let mut info = format!("<p>path: {}</p>\n", uri);
+        let mut info = format!("<h1>path: {}</h1>\n", uri);
+
+        {
+            let parent = (|| -> Option<&str> {
+                let path = Path::new(uri);
+                Some(path.parent()?.to_str()?)
+            })();
+
+            if let Some(p) = parent {
+                info.push_str(format!("<h2><a href=\"{}\">BACK TO {}</a></h2>", p, p).as_str());
+            }
+        }
 
         let entries = match &entries {
             Some(vec) => {
