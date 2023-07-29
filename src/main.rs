@@ -1,9 +1,11 @@
+mod thread_pool;
 use regex::Regex;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
 use std::time::Duration;
 use std::{fs, thread};
+use thread_pool::ThreadPool;
 
 const ADDRESS: &str = "127.0.0.1:7878";
 
@@ -22,7 +24,7 @@ fn handle_connection(mut stream: TcpStream) {
         .take_while(|line| !line.is_empty())
         .collect();
 
-    thread::sleep(Duration::from_secs_f32(2.0));
+    thread::sleep(Duration::from_secs_f32(4.0));
 
     println!("REQEST: {:#?}", http_req);
 
@@ -96,10 +98,11 @@ fn handle_connection(mut stream: TcpStream) {
 
 fn run_server() -> Option<()> {
     let listener = TcpListener::bind(ADDRESS).unwrap();
+    let mut pool = ThreadPool::new(4);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        thread::spawn(|| {
+        pool.run(|| {
             handle_connection(stream);
         });
     }
