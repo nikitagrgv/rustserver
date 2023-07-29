@@ -71,20 +71,14 @@ impl ThreadPool {
     {
         let job = Job::new(f);
 
-        println!("start find");
         let mut worker = self.find_worker();
-        println!("worker id = {}", worker.worker.id);
-
         worker.sender.send(job).unwrap();
-
-        println!("ended");
     }
 
     fn find_worker<'a>(&'a mut self) -> &'a mut WorkerInfo {
         let idx = 'l: loop {
             for (i, w) in self.workers.iter().enumerate() {
                 let busy = w.worker.busy.load(Ordering::Relaxed);
-                println!("PREV: {} -  {}", i, busy);
                 if !busy {
                     break 'l i;
                 }
