@@ -25,7 +25,6 @@ struct Worker {
 impl Worker {
     fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
         let handle = thread::spawn(move || {
-            println!("im thread {id}");
             loop {
                 let job = rx.lock().unwrap().recv();
                 match job {
