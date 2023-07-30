@@ -1,5 +1,3 @@
-use std::any::Any;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -24,25 +22,19 @@ struct Worker {
 
 impl Worker {
     fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
-        let handle = thread::spawn(move || {
-            loop {
-                let job = rx.lock().unwrap().recv();
-                match job {
-                    Ok(job) => (job.func)(),
-                    Err(_) => break,
-                }
+        let handle = thread::spawn(move || loop {
+            let job = rx.lock().unwrap().recv();
+            match job {
+                Ok(job) => (job.func)(),
+                Err(_) => break,
             }
         });
         Self { id, handle }
     }
 }
 
-struct WorkerInfo {
-    worker: Worker,
-}
-
 pub struct ThreadPool {
-    workers: Vec<WorkerInfo>,
+    workers: Vec<Worker>,
     sender: mpsc::Sender<Job>,
 }
 
@@ -58,7 +50,7 @@ impl ThreadPool {
 
         for id in 0..max_threads {
             let worker = Worker::new(id, rx.clone());
-            workers.push(WorkerInfo { worker });
+            workers.push(worker);
         }
 
         return Self {

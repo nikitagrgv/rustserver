@@ -95,7 +95,7 @@ fn handle_connection(mut stream: TcpStream) {
 
 fn run_server() -> Option<()> {
     let listener = TcpListener::bind(ADDRESS).unwrap();
-    let mut pool = ThreadPool::new(5);
+    let mut pool = ThreadPool::new(3);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
