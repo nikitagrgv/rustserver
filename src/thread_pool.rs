@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -19,32 +20,31 @@ impl Job {
 struct Worker {
     id: usize,
     handle: JoinHandle<()>,
-    busy: Arc<AtomicBool>,
 }
 
 impl Worker {
-    fn new(id: usize, rx: mpsc::Receiver<Job>) -> Self {
-        let busy = Arc::new(AtomicBool::new(false));
-
-        let busy_th = busy.clone();
+    fn new(id: usize, rx: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
         let handle = thread::spawn(move || {
-            for j in rx {
-                busy_th.store(true, Ordering::Relaxed);
-                (j.func)();
-                busy_th.store(false, Ordering::Relaxed);
+            println!("im thread {id}");
+            loop {
+                let job = rx.lock().unwrap().recv();
+                match job {
+                    Ok(job) => (job.func)(),
+                    Err(_) => break,
+                }
             }
         });
-        Self { id, handle, busy }
+        Self { id, handle }
     }
 }
 
 struct WorkerInfo {
     worker: Worker,
-    sender: mpsc::Sender<Job>,
 }
 
 pub struct ThreadPool {
     workers: Vec<WorkerInfo>,
+    sender: mpsc::Sender<Job>,
 }
 
 impl ThreadPool {
@@ -53,16 +53,19 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(max_threads);
 
+        let (tx, rx) = mpsc::channel();
+
+        let rx = Arc::new(Mutex::new(rx));
+
         for id in 0..max_threads {
-            let (tx, rx) = mpsc::channel();
-            let worker = Worker::new(id, rx);
-
-            let worker_info = WorkerInfo { worker, sender: tx };
-
-            workers.push(worker_info);
+            let worker = Worker::new(id, rx.clone());
+            workers.push(WorkerInfo { worker });
         }
 
-        return Self { workers };
+        return Self {
+            workers,
+            sender: tx,
+        };
     }
 
     pub fn run<F>(&mut self, f: F)
@@ -70,20 +73,6 @@ impl ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         let job = Job::new(f);
-
-        let mut worker = self.find_worker();
-        worker.sender.send(job).unwrap();
-    }
-
-    fn find_worker<'a>(&'a mut self) -> &'a mut WorkerInfo {
-        let idx = 'l: loop {
-            for (i, w) in self.workers.iter().enumerate() {
-                let busy = w.worker.busy.load(Ordering::Relaxed);
-                if !busy {
-                    break 'l i;
-                }
-            }
-        };
-        return &mut self.workers[idx];
+        self.sender.send(job).unwrap();
     }
 }
