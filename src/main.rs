@@ -44,10 +44,10 @@ fn handle_connection(mut stream: TcpStream) {
                 if let Ok(e) = d {
                     let meta = e.metadata().unwrap();
                     let path = e.path().as_path().as_os_str().to_str().unwrap().to_string();
-                    if (meta.is_dir() || meta.is_symlink()) {
+                    if meta.is_dir() || meta.is_symlink() {
                         vec.push(Entry::Dir(path));
-                    } else if (meta.is_file()) {
-                        vec.push(Entry::File((path)));
+                    } else if meta.is_file() {
+                        vec.push(Entry::File(path));
                     }
                 }
             }
